@@ -1,0 +1,168 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Pixel City Walk 的徐州版本：一个可以游览、打卡并生成旅行明信片的非官方像素城市网页游戏。">
+  <title>彭城漫游记 · 徐州像素世界</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="frame">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brandmark">彭</div>
+          <div>
+            <b>彭城漫游记</b>
+            <small id="playerGreeting">一个抽象的徐州像素世界</small>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button id="resetTrip" hidden>↺ 重新开始</button>
+          <button id="back" hidden>◎ 返回世界地图</button>
+          <button id="finishTrip" hidden>✓ 结束漫游</button>
+        </div>
+      </header>
+      <section class="stage">
+        <canvas id="game" class="game" tabindex="0"></canvas>
+        <div class="scanlines"></div>
+        <div class="hud">
+          <div class="hud-line">
+            <div><small>当前地点</small><br><strong id="zoneName">等待出发</strong></div>
+            <span id="zoneIcon" style="font-size:27px">🗺️</span>
+          </div>
+          <div class="hud-state"><span id="walkState">站立</span> · <b id="steps">0</b> 步 · 帧 <b id="frameNo">1</b>/4</div>
+        </div>
+        <div class="hint">
+          <span class="desktop-control">点击地面 / WASD / 方向键移动</span>
+          <span class="mobile-control">点闪光景点，直接查看介绍</span>
+        </div>
+        <div id="prompt" class="prompt">
+          <kbd class="desktop-control">E</kbd><span id="promptLabel">查看景点介绍</span>
+        </div>
+        <div class="dpad">
+          <button class="up" data-key="w">▲</button>
+          <button class="left" data-key="a">◀</button>
+          <button class="right" data-key="d">▶</button>
+          <button class="down" data-key="s">▼</button>
+        </div>
+        <button id="look" class="look">看看</button>
+      </section>
+      <section id="overview" class="overview">
+        <div id="mapViewport" class="world-map">
+          <div id="mapCanvas" class="map-canvas">
+            <img src="cities/xuzhou/map.png" alt="抽象徐州像素世界地图">
+            <div id="pins"></div>
+          </div>
+          <div class="map-title">
+            <small id="mapWaitKicker">彭彭正在等你出发</small>
+            <h1 id="mapWelcome">今天从哪里开始逛？</h1>
+            <p id="mapWaitHint">点击黄色地标；放大后可拖动地图查看细节。</p>
+          </div>
+          <div class="map-controls" aria-label="地图缩放">
+            <button id="mapZoomOut" aria-label="缩小地图">−</button>
+            <button id="mapReset" aria-label="复位地图">◎</button>
+            <button id="mapZoomIn" aria-label="放大地图">＋</button>
+          </div>
+          <div class="map-drag-tip">放大后，用手指拖动地图</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <section id="onboarding" class="onboarding open" aria-modal="true" role="dialog">
+    <article class="intro-card">
+      <div class="npc-panel">
+        <div class="npc-sprite" aria-hidden="true"></div>
+        <div><b id="npcName">彭彭</b><br><span id="npcRole">你的彭城向导</span></div>
+      </div>
+      <div class="intro-copy">
+        <div id="nameStep">
+          <small id="welcomeKicker">欢迎来到彭城</small>
+          <h1 id="welcomeTitle">你好，我是彭彭。<br>先告诉我你叫什么？</h1>
+          <p id="welcomeText">我会陪你走进这张徐州像素地图，发现山水、老城与汉文化的故事。</p>
+          <form id="nameForm" class="name-form">
+            <input id="playerName" maxlength="12" autocomplete="nickname" placeholder="输入你的名字" aria-label="你的名字" required>
+            <button class="primary" type="submit" id="nameSubmit">认识一下</button>
+          </form>
+        </div>
+        <div id="guideStep" hidden>
+          <small id="guideKicker">彭彭的话</small>
+          <h1 id="guideTitle"></h1>
+          <p id="guideText"></p>
+          <div id="guideProgress" class="guide-progress"></div>
+          <div class="guide-actions"><button id="guideNext" class="primary" type="button">继续</button></div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="rotateHint" class="rotate-hint" aria-modal="true" role="dialog">
+    <article class="rotate-card">
+      <div class="phone-turn" aria-hidden="true"></div>
+      <small id="rotateKicker">手机体验提示</small>
+      <h2 id="rotateTitle">横过手机，地图会更清楚</h2>
+      <p id="rotateText">横屏可以看到更完整的徐州地图。进入后还可以使用右下角的“＋”放大，再用手指拖动查看细节。</p>
+      <button id="continuePortrait" type="button">我知道了，继续体验</button>
+    </article>
+  </section>
+
+  <section id="story" class="story">
+    <article class="story-card">
+      <div id="storyArt" class="story-art"></div>
+      <div class="story-copy">
+        <small id="storyKicker">彭城旅行手账 · 新发现</small>
+        <h2 id="storyTitle"></h2>
+        <p id="storyText"></p>
+        <div class="facts">
+          <div><b id="factA"></b><span id="factAText"></span></div>
+          <div><b id="factB"></b><span id="factBText"></span></div>
+        </div>
+        <div class="story-actions">
+          <button id="collect">收进手账</button>
+          <button id="close" class="ghost">继续走走</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="tripEnd" class="trip-end" aria-modal="true" role="dialog">
+    <article class="trip-result">
+      <div class="card-wrap"><canvas id="travelCard" width="1600" height="900"></canvas></div>
+      <div class="result-copy">
+        <small id="resultKicker">本次彭城漫游完成</small>
+        <h2 id="resultTitle">你的像素明信片做好了</h2>
+        <p id="resultDesc">这张徐州旅行票根按确认过的景点相对方位制作。可以下载保存，也可以回到地图继续逛。</p>
+        <div class="result-stats">
+          <div><b id="resultZones">0</b><span id="statZonesLabel">走过区域</span></div>
+          <div><b id="resultFinds">0</b><span id="statFindsLabel">收录风景</span></div>
+        </div>
+        <div class="result-actions">
+          <button id="downloadCard" class="download">下载我的像素明信片</button>
+          <button id="continueTrip" class="continue">继续漫游</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- Shown when city.json fails to load (e.g. opened via file:// without a static server). -->
+  <section id="serverWarning" class="server-warning" aria-modal="true" role="dialog">
+    <article class="card">
+      <small>无法加载城市数据</small>
+      <h2>请用静态服务器打开</h2>
+      <p>本项目需要通过 HTTP 访问才能加载城市数据包。直接双击 index.html 打开会因浏览器安全限制而无法运行。</p>
+      <p>请在项目目录下运行：</p>
+      <p><code>python -m http.server 8080</code></p>
+      <p>然后访问 <code>http://127.0.0.1:8080/</code></p>
+    </article>
+  </section>
+
+  <div class="asset-credit">角色：Imogia Games / OpenGameArt（CC0） · 地形素材参考：Kenney RPG Urban（CC0）</div>
+  <div class="map-disclaimer">非官方艺术地图 · 仅供互动体验 · 不用于现实导航</div>
+
+  <script src="js/engine.js"></script>
+</body>
+</html>
