@@ -21,6 +21,7 @@
           </div>
         </div>
         <div class="top-actions">
+          <button id="chooseRoute" hidden>◇ 主题路线</button>
           <button id="resetTrip" hidden>↺ 重新开始</button>
           <button id="back" hidden>◎ 返回世界地图</button>
           <button id="finishTrip" hidden>✓ 结束漫游</button>
@@ -68,6 +69,12 @@
             <button id="mapZoomIn" aria-label="放大地图">＋</button>
           </div>
           <div class="map-drag-tip">放大后，用手指拖动地图</div>
+          <aside id="journeyPanel" class="journey-panel" aria-live="polite">
+            <div class="journey-head"><small>彭彭的旅行任务</small><b id="activeRouteName">自由漫游</b></div>
+            <div id="routeProgress" class="route-progress"></div>
+            <div class="triangle-progress"><span id="triangleLabel">古今徐州</span><b id="triangleCount">0/3</b></div>
+            <div id="stampShelf" class="stamp-shelf" aria-label="旅行印章"></div>
+          </aside>
         </div>
       </section>
     </section>
@@ -100,6 +107,21 @@
     </article>
   </section>
 
+  <section id="routePicker" class="route-picker" aria-modal="true" role="dialog">
+    <article class="route-card">
+      <small id="routeKicker">选择你的徐州漫游主题</small>
+      <h2 id="routeTitle">今天想怎样认识徐州？</h2>
+      <p id="routeIntro">路线只提供故事引导，不会限制你自由探索其他地点。</p>
+      <div id="routeChoices" class="route-choices"></div>
+      <button id="freeRoute" class="route-free" type="button">先自由走走</button>
+    </article>
+  </section>
+
+  <aside id="npcToast" class="npc-toast" aria-live="polite">
+    <div class="npc-toast-sprite" aria-hidden="true"></div>
+    <div><b id="npcToastName">彭彭</b><p id="npcToastText"></p></div>
+  </aside>
+
   <section id="rotateHint" class="rotate-hint" aria-modal="true" role="dialog">
     <article class="rotate-card">
       <div class="phone-turn" aria-hidden="true"></div>
@@ -121,6 +143,10 @@
           <div><b id="factA"></b><span id="factAText"></span></div>
           <div><b id="factB"></b><span id="factBText"></span></div>
         </div>
+        <div id="stampReward" class="stamp-reward" hidden>
+          <span id="stampSymbol">印</span>
+          <div><small>本区旅行印章</small><b id="stampName"></b></div>
+        </div>
         <div class="story-actions">
           <button id="collect">收进手账</button>
           <button id="close" class="ghost">继续走走</button>
@@ -134,11 +160,13 @@
       <div class="card-wrap"><canvas id="travelCard" width="1600" height="900"></canvas></div>
       <div class="result-copy">
         <small id="resultKicker">本次彭城漫游完成</small>
+        <div id="endingBadge" class="ending-badge">彭城初见</div>
         <h2 id="resultTitle">你的像素明信片做好了</h2>
         <p id="resultDesc">这张徐州旅行票根按确认过的景点相对方位制作。可以下载保存，也可以回到地图继续逛。</p>
         <div class="result-stats">
           <div><b id="resultZones">0</b><span id="statZonesLabel">走过区域</span></div>
           <div><b id="resultFinds">0</b><span id="statFindsLabel">收录风景</span></div>
+          <div><b id="resultStamps">0</b><span id="statStampsLabel">旅行印章</span></div>
         </div>
         <div class="result-actions">
           <button id="downloadCard" class="download">下载我的像素明信片</button>

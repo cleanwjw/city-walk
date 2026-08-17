@@ -8,7 +8,7 @@
   let WORLD={w:1536,h:1024};
   let zones={};
   let waters=[];
-  const keys=new Set(),visited=new Set(),route=[];
+  const keys=new Set(),visited=new Set(),earnedStamps=new Set(),milestones=new Set(),route=[];
 
   const worldImage=new Image();
   const ticketImage=new Image();
@@ -23,7 +23,7 @@
 
   const player={x:760,y:575,dir:'down',frame:1,anim:0,steps:0,moving:false,target:null};
   const camera={x:0,y:0,zoom:1.65};
-  let currentZone=null,nearScene=null,activeScene=null,playerName='旅行者',guideIndex=0,mapScale=1,mapX=0,mapY=0,mapDrag=null,last=performance.now();
+  let currentZone=null,nearScene=null,activeScene=null,playerName='旅行者',guideIndex=0,selectedRouteId=null,mapScale=1,mapX=0,mapY=0,mapDrag=null,last=performance.now(),toastTimer=null;
 
   /* ---- city loading ---- */
   async function loadCity(path){
@@ -62,6 +62,8 @@
     // NPC sprite filter
     const npcSprite=document.querySelector('.npc-sprite');
     if(c.npc.spriteFilter)npcSprite.style.filter=c.npc.spriteFilter;
+    const npcToastSprite=document.querySelector('.npc-toast-sprite');
+    if(c.npc.spriteFilter)npcToastSprite.style.filter=c.npc.spriteFilter;
 
     // brandmark + title
     document.querySelector('.brandmark').textContent=c.brandmark;
@@ -81,12 +83,94 @@
   const $=s=>document.querySelector(s);
   const fmt=(tpl,name)=>tpl.replace(/\{name\}/g,name);
   const themeColor=(k,fallback)=>city?city.theme[k]||fallback:fallback;
+  const gameplay=()=>city?.gameplay||{};
+  const selectedRoute=()=>gameplay().routes?.find(r=>r.id===selectedRouteId)||null;
+  const textData=(tpl,data={})=>String(tpl||'').replace(/\{(\w+)\}/g,(_,k)=>({name:playerName,city:city?.name||'',...data})[k]??'');
+
+  function showNpcToast(text){
+    if(!text)return;
+    clearTimeout(toastTimer);
+    $('#npcToastName').textContent=city.npc.name;
+    $('#npcToastText').textContent=text;
+    $('#npcToast').classList.add('show');
+    toastTimer=setTimeout(()=>$('#npcToast').classList.remove('show'),4300);
+  }
+
+  function triangleState(){
+    const ids=gameplay().triangle?.zones||[];
+    const done=ids.filter(id=>earnedStamps.has(id));
+    return{ids,done,complete:ids.length>0&&done.length===ids.length};
+  }
+
+  function allStampIds(){return Object.keys(gameplay().stamps||{}).filter(id=>zones[id])}
+  function routeComplete(r=selectedRoute()){return!!r&&r.zones.length>0&&r.zones.every(id=>earnedStamps.has(id))}
+
+  function updateJourneyUI(){
+    const gp=gameplay(),r=selectedRoute(),tri=triangleState(),stampIds=allStampIds();
+    $('#activeRouteName').textContent=r?r.name:(gp.freeRouteName||'自由漫游');
+    $('#routeProgress').innerHTML=r?r.zones.map((id,i)=>`<span class="route-step ${earnedStamps.has(id)?'done':(!r.zones.slice(0,i).some(z=>!earnedStamps.has(z))?'current':'')}" title="${zones[id]?.name||id}">${i+1}·${zones[id]?.name||id}</span>`).join(''):`<span class="route-step current">任选地标，自由发现</span>`;
+    $('#triangleLabel').textContent=gp.triangle?.shortTitle||gp.triangle?.title||'城市主线';
+    $('#triangleCount').textContent=`${tri.done.length}/${tri.ids.length||3}`;
+    $('.triangle-progress').classList.toggle('complete',tri.complete);
+    $('#stampShelf').innerHTML=stampIds.map(id=>{const s=gp.stamps[id];return`<span class="stamp-mini ${earnedStamps.has(id)?'earned':''}" title="${s.name}">${earnedStamps.has(id)?s.symbol:'·'}</span>`}).join('');
+    document.querySelectorAll('.pin').forEach(pin=>{
+      const id=pin.dataset.zone,index=r?r.zones.indexOf(id):-1;
+      pin.classList.toggle('selected',index>=0);
+      pin.classList.toggle('stamped',earnedStamps.has(id));
+      const order=pin.querySelector('.route-order');
+      if(order){order.textContent=index>=0?index+1:'';order.hidden=index<0}
+    });
+  }
+
+  function chooseRoute(id,announce=true){
+    const r=gameplay().routes?.find(item=>item.id===id)||null;
+    selectedRouteId=r?.id||null;
+    $('#routePicker').classList.remove('open');
+    $('#chooseRoute').hidden=!(gameplay().routes?.length);
+    updateJourneyUI();saveProgress();
+    if(announce)showNpcToast(r?textData(r.startText||gameplay().npc?.routeChosen,{route:r.name,first:zones[r.zones[0]]?.name}):gameplay().npc?.freeRoute);
+  }
+
+  function openRoutePicker(){
+    const gp=gameplay(),routes=gp.routes||[];
+    if(!routes.length)return;
+    $('#routeKicker').textContent=gp.routePicker?.kicker||'选择漫游主题';
+    $('#routeTitle').textContent=gp.routePicker?.title||'今天想怎样认识这座城？';
+    $('#routeIntro').textContent=gp.routePicker?.text||'路线只提供故事引导，不会限制自由探索。';
+    $('#freeRoute').textContent=gp.routePicker?.freeLabel||'先自由走走';
+    $('#routeChoices').innerHTML=routes.map(r=>`<button class="route-choice ${r.id===selectedRouteId?'selected':''}" data-route="${r.id}" type="button"><span>${r.icon||'◇'}</span><b>${r.name}</b><small>${r.desc}</small><em>${r.zones.map(id=>zones[id]?.name||id).join(' → ')}</em></button>`).join('');
+    document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>chooseRoute(b.dataset.route));
+    $('#routePicker').classList.add('open');
+  }
+
+  function awardStamp(zoneId){
+    const stamp=gameplay().stamps?.[zoneId];
+    if(!stamp||earnedStamps.has(zoneId))return false;
+    earnedStamps.add(zoneId);return true;
+  }
+
+  function reactToProgress(zoneId,isNewStamp){
+    const gp=gameplay(),npc=gp.npc||{},tri=triangleState(),stampIds=allStampIds(),r=selectedRoute();
+    let text='';
+    if(stampIds.length&&earnedStamps.size>=stampIds.length&&!milestones.has('allStamps')){
+      milestones.add('allStamps');if(tri.complete)milestones.add('triangle');if(r&&routeComplete(r))milestones.add('route:'+r.id);text=npc.allStamps;
+    }else if(tri.complete&&!milestones.has('triangle')){
+      milestones.add('triangle');text=npc.triangleComplete||gp.triangle?.unlockText;
+    }else if(r&&routeComplete(r)&&!milestones.has('route:'+r.id)){
+      milestones.add('route:'+r.id);text=textData(r.completeText||npc.routeComplete,{route:r.name});
+    }else if(isNewStamp){
+      const count=earnedStamps.size,remaining=Math.max(0,stampIds.length-count);
+      text=count===1?textData(npc.firstStamp,{zone:zones[zoneId]?.name,count,remaining}):textData(npc.stampProgress,{zone:zones[zoneId]?.name,count,remaining});
+    }
+    if(text)showNpcToast(textData(text,{zone:zones[zoneId]?.name,count:earnedStamps.size,remaining:Math.max(0,stampIds.length-earnedStamps.size)}));
+    updateJourneyUI();saveProgress();
+  }
 
   /* ---- progress persistence (per city) ---- */
   let saveKey='pcw';
   function saveProgress(){
     try{
-      localStorage.setItem(saveKey,JSON.stringify({v:1,name:playerName,visited:[...visited],route:[...route],steps:Math.floor(player.steps)}));
+      localStorage.setItem(saveKey,JSON.stringify({v:2,name:playerName,visited:[...visited],stamps:[...earnedStamps],milestones:[...milestones],selectedRouteId,route:[...route],steps:Math.floor(player.steps)}));
     }catch(e){/* private mode / storage disabled: play without saving */}
   }
   function loadProgress(){
@@ -94,7 +178,7 @@
       const raw=localStorage.getItem(saveKey);
       if(!raw)return null;
       const s=JSON.parse(raw);
-      return s&&s.v===1&&typeof s.name==='string'?s:null;
+      return s&&(s.v===1||s.v===2)&&typeof s.name==='string'?s:null;
     }catch(e){return null}
   }
   function clearProgress(){try{localStorage.removeItem(saveKey)}catch(e){}}
@@ -220,14 +304,22 @@
     art.style.backgroundSize='300% auto';
     art.style.backgroundPosition=`${s.x/WORLD.w*100}% ${s.y/WORLD.h*100}%`;
     art.style.backgroundImage=`var(--city-map-url)`;
+    const stamp=gameplay().stamps?.[currentZone];
+    $('#stampReward').hidden=!stamp;
+    if(stamp){
+      $('#stampSymbol').textContent=stamp.symbol;
+      $('#stampName').textContent=earnedStamps.has(currentZone)?`${stamp.name} · 已获得`:stamp.name;
+    }
     $('#collect').textContent=visited.has(currentZone+':'+i)?city.ui.collectedLabel:city.ui.collectLabel;
     $('#story').classList.add('open')
+    if(visited.has(currentZone+':'+i)&&gameplay().npc?.revisit)showNpcToast(textData(gameplay().npc.revisit,{zone:zones[currentZone].name}));
   }
 
   /* ---- map pins ---- */
   function buildPins(){
-    $('#pins').innerHTML=Object.entries(zones).map(([id,z])=>`<button class="pin" data-zone="${id}" style="left:${z.x/WORLD.w*100}%;top:${z.y/WORLD.h*100}%"><span>${z.icon}</span><b>${z.name}</b></button>`).join('');
+    $('#pins').innerHTML=Object.entries(zones).map(([id,z])=>`<button class="pin" data-zone="${id}" style="left:${z.x/WORLD.w*100}%;top:${z.y/WORLD.h*100}%"><i class="route-order" hidden></i><span>${z.icon}</span><b>${z.name}</b></button>`).join('');
     document.querySelectorAll('[data-zone]').forEach(b=>b.onclick=()=>enterZone(b.dataset.zone));
+    updateJourneyUI();
   }
 
   /* ---- postcard ---- */
@@ -249,7 +341,35 @@
     return g.font;
   }
 
-  function drawCardOverlay(g,card,uniqueZones,finds){
+  function determineEnding(){
+    const gp=gameplay(),e=gp.endings||{},r=selectedRoute(),tri=triangleState(),all=allStampIds();
+    if(all.length&&all.every(id=>earnedStamps.has(id)))return{text:e.allStamps?.title||'七印彭城',desc:e.allStamps?.desc||city.ui.resultDesc,color:e.allStamps?.color||city.theme.red,key:'allStamps'};
+    if(tri.complete)return{text:e.triangle?.title||gp.triangle?.title||'城市主线完成',desc:e.triangle?.desc||city.ui.resultDesc,color:e.triangle?.color||city.theme.gold,key:'triangle'};
+    if(r&&routeComplete(r))return{text:textData(e.routeComplete?.title||'{route}·完成',{route:r.name}),desc:textData(e.routeComplete?.desc||r.completeText,{route:r.name}),color:r.color||city.theme.jade,key:'route'};
+    return{text:e.default?.title||'彭城初见',desc:e.default?.desc||city.ui.resultDesc,color:e.default?.color||city.theme.jade,key:'default'};
+  }
+
+  function drawJourneyDecorations(g,ending){
+    const gp=gameplay(),box=gp.postcardMap||{x:70,y:55,w:970,h:690},tri=triangleState();
+    const point=id=>({x:box.x+(zones[id].x/WORLD.w)*box.w,y:box.y+(zones[id].y/WORLD.h)*box.h});
+    g.save();
+    if(tri.complete){
+      const pts=tri.ids.filter(id=>zones[id]).map(point);
+      if(pts.length>2){
+        g.strokeStyle=gp.triangle?.color||ending.color;g.lineWidth=9;g.globalAlpha=.72;g.setLineDash([18,12]);
+        g.beginPath();g.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>g.lineTo(p.x,p.y));g.closePath();g.stroke();g.setLineDash([]);
+      }
+    }
+    Object.entries(gp.stamps||{}).forEach(([id,stamp])=>{
+      if(!earnedStamps.has(id)||!zones[id])return;
+      const p=point(id);g.globalAlpha=.9;g.fillStyle='rgba(255,249,235,.92)';g.strokeStyle=ending.color;g.lineWidth=5;
+      g.beginPath();g.arc(p.x,p.y,27,0,Math.PI*2);g.fill();g.stroke();
+      g.fillStyle=ending.color;g.font='900 25px "Microsoft YaHei",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(stamp.symbol,p.x,p.y+1);
+    });
+    g.restore();
+  }
+
+  function drawCardOverlay(g,card,uniqueZones,finds,ending){
     const o=city.postcard.overlay;
     if(!o)return;
     const today=new Date();
@@ -262,7 +382,10 @@
       zones:uniqueZones.length,
       finds:finds.length,
       steps:Math.floor(player.steps),
-      route:uniqueZones.map(id=>zones[id].name).join(' → ')
+      route:uniqueZones.map(id=>zones[id].name).join(' → '),
+      routeName:selectedRoute()?.name||gameplay().freeRouteName||'自由漫游',
+      stamps:earnedStamps.size,
+      ending:ending.text
     };
     // caption band
     if(o.panel){
@@ -295,7 +418,7 @@
 
   function drawTravelCard(){
     const card=$('#travelCard'),g=card.getContext('2d');
-    const uniqueZones=[...new Set(route)].filter(id=>zones[id]),finds=collectedSceneNames();
+    const uniqueZones=[...new Set(route)].filter(id=>zones[id]),finds=collectedSceneNames(),ending=determineEnding();
     g.clearRect(0,0,card.width,card.height);
     if(ticketImage.complete&&ticketImage.naturalWidth){
       g.drawImage(ticketImage,0,0,card.width,card.height);
@@ -305,10 +428,16 @@
       g.font='800 34px "Microsoft YaHei",sans-serif';
       g.fillText(city.postcard.loadingText,card.width/2,card.height/2);
     }
-    drawCardOverlay(g,card,uniqueZones,finds);
+    drawJourneyDecorations(g,ending);
+    drawCardOverlay(g,card,uniqueZones,finds,ending);
     $('#resultTitle').textContent=fmt(city.ui.resultTitle,playerName);
+    $('#endingBadge').textContent=ending.text;
+    $('#endingBadge').style.borderColor=ending.color;
+    $('#endingBadge').style.color=ending.color;
+    $('#resultDesc').textContent=ending.desc;
     $('#resultZones').textContent=uniqueZones.length;
     $('#resultFinds').textContent=finds.length;
+    $('#resultStamps').textContent=earnedStamps.size;
     return card
   }
 
@@ -348,11 +477,14 @@
 
     const portraitPhone=matchMedia('(max-width:850px) and (orientation:portrait)');
     function beginMapExperience(){$('#rotateHint').classList.remove('open');if(portraitPhone.matches)setMapZoom(1.5);else resetMapView();setTimeout(()=>{fit();canvas.focus()},80)}
-    $('#guideNext').onclick=()=>{if(guideIndex<city.npc.guide.length-1){guideIndex++;renderGuide();return}onboarding.classList.remove('open');if(portraitPhone.matches)$('#rotateHint').classList.add('open');else beginMapExperience()};
+    $('#guideNext').onclick=()=>{if(guideIndex<city.npc.guide.length-1){guideIndex++;renderGuide();return}onboarding.classList.remove('open');if(gameplay().routes?.length&&!selectedRouteId)openRoutePicker();if(portraitPhone.matches)$('#rotateHint').classList.add('open');else beginMapExperience()};
     $('#continuePortrait').onclick=beginMapExperience;
     portraitPhone.addEventListener?.('change',e=>{if(!e.matches&&$('#rotateHint').classList.contains('open'))beginMapExperience()});
 
     $('#back').onclick=showOverview;
+    $('#chooseRoute').onclick=openRoutePicker;
+    $('#freeRoute').onclick=()=>chooseRoute(null);
+    $('#routePicker').onclick=e=>{if(e.target.id==='routePicker'&&selectedRouteId!==null)$('#routePicker').classList.remove('open')};
     $('#finishTrip').onclick=finishTrip;
     $('#continueTrip').onclick=()=>$('#tripEnd').classList.remove('open');
     $('#tripEnd').onclick=e=>{if(e.target.id==='tripEnd')$('#tripEnd').classList.remove('open')};
@@ -360,7 +492,7 @@
     $('#look').onclick=()=>openScene(nearScene);
     $('#close').onclick=()=>$('#story').classList.remove('open');
     $('#story').onclick=e=>{if(e.target.id==='story')$('#story').classList.remove('open')};
-    $('#collect').onclick=()=>{if(activeScene===null)return;visited.add(currentZone+':'+activeScene);$('#collect').textContent=city.ui.collectedLabel;saveProgress()};
+    $('#collect').onclick=()=>{if(activeScene===null)return;const key=currentZone+':'+activeScene,already=visited.has(key);visited.add(key);const isNewStamp=awardStamp(currentZone);$('#collect').textContent=city.ui.collectedLabel;const stamp=gameplay().stamps?.[currentZone];if(stamp)$('#stampName').textContent=`${stamp.name} · 已获得`;reactToProgress(currentZone,isNewStamp);if(already&&!isNewStamp&&gameplay().npc?.revisit)showNpcToast(textData(gameplay().npc.revisit,{zone:zones[currentZone].name}))};
 
     addEventListener('resize',()=>{fit();draw();applyMapTransform()});
 
@@ -402,11 +534,14 @@
       $('#resultDesc').textContent=ui.resultDesc;
       $('#statZonesLabel').textContent=ui.statZonesLabel;
       $('#statFindsLabel').textContent=ui.statFindsLabel;
+      $('#statStampsLabel').textContent=ui.statStampsLabel||'旅行印章';
       $('#promptLabel').textContent=ui.promptLabel;
       $('#rotateKicker').textContent=ui.rotateKicker;
       $('#rotateTitle').textContent=ui.rotateTitle;
       $('#rotateText').textContent=ui.rotateText;
       $('#continuePortrait').textContent=ui.rotateButton;
+      $('#chooseRoute').textContent=gameplay().routeButtonLabel||'◇ 主题路线';
+      $('#chooseRoute').hidden=!(gameplay().routes?.length);
 
       saveKey=`pcw:${cityId}`;
 
@@ -422,6 +557,11 @@
       if(saved){
         playerName=saved.name;
         (saved.visited||[]).forEach(k=>typeof k==='string'&&visited.add(k));
+        (saved.stamps||[]).forEach(id=>gameplay().stamps?.[id]&&earnedStamps.add(id));
+        // v1 saves predate zone stamps; convert any collected scene into its zone stamp.
+        if(saved.v===1)(saved.visited||[]).forEach(k=>{const id=String(k).split(':')[0];if(gameplay().stamps?.[id])earnedStamps.add(id)});
+        (saved.milestones||[]).forEach(id=>typeof id==='string'&&milestones.add(id));
+        selectedRouteId=gameplay().routes?.some(r=>r.id===saved.selectedRouteId)?saved.selectedRouteId:null;
         (saved.route||[]).forEach(id=>{if(zones[id]&&route.at(-1)!==id)route.push(id)});
         player.steps=saved.steps||0;
         $('#steps').textContent=Math.floor(player.steps);
@@ -433,6 +573,7 @@
 
       buildPins();
       bindEvents();
+      updateJourneyUI();
       if(saved){
         if(matchMedia('(max-width:850px) and (orientation:portrait)').matches)setMapZoom(1.5);
       }else{

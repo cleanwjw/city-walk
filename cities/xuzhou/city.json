@@ -94,6 +94,7 @@
     "resultDesc": "这张徐州旅行票根按已确认的景点相对方位制作。可以下载保存，也可以回到地图继续漫游。",
     "statZonesLabel": "走过区域",
     "statFindsLabel": "收录风景",
+    "statStampsLabel": "旅行印章",
     "storyKicker": "彭城旅行手账 · 新发现",
     "rotateKicker": "手机体验提示",
     "rotateTitle": "横过手机，地图会更清楚",
@@ -105,6 +106,96 @@
   "pins": {
     "tipDrag": "用手指拖动地图查看细节",
     "tipZoom": "点击“＋”放大地图"
+  },
+  "gameplay": {
+    "routeButtonLabel": "◇ 主题路线",
+    "freeRouteName": "自由漫游",
+    "routePicker": {
+      "kicker": "彭彭的三份旅行提案",
+      "title": "今天想怎样认识徐州？",
+      "text": "选择一条主题路线会获得顺序提示，但不会限制你探索其他地点。旅行中也可以随时更换。",
+      "freeLabel": "先自由走走"
+    },
+    "routes": [
+      {
+        "id": "landscape",
+        "name": "山水漫游",
+        "icon": "⛰️",
+        "color": "#58aeba",
+        "desc": "从湖光走向山色，再到博物馆读懂山水之间的城市。",
+        "zones": ["yunlonglake", "yunlongshan", "museum"],
+        "startText": "山水漫游出发！第一站去{first}，我会替你记下沿途印章。",
+        "completeText": "{route}完成！湖、山与城市文脉已经连成一条属于你的路线。"
+      },
+      {
+        "id": "oldcity",
+        "name": "老城寻踪",
+        "icon": "🏘️",
+        "color": "#a84b3f",
+        "desc": "穿过回龙窝与户部山，从街巷院落走向城市历史。",
+        "zones": ["huilongwo", "hubushan", "museum"],
+        "startText": "老城寻踪开始！先从{first}出发，看看街巷怎样把故事留到今天。",
+        "completeText": "{route}完成！三枚印章把老城街巷和博物馆里的城市记忆串起来了。"
+      },
+      {
+        "id": "hanmemory",
+        "name": "汉风与记忆",
+        "icon": "🏺",
+        "color": "#e8bd52",
+        "desc": "从博物馆到汉文化景区，再走向城市的红色记忆。",
+        "zones": ["museum", "hanculture", "huaitower"],
+        "startText": "汉风与记忆路线开启！从{first}开始，慢慢读懂古今徐州。",
+        "completeText": "{route}完成！从汉文化到城市记忆，你已经走过一条跨越古今的路线。"
+      }
+    ],
+    "triangle": {
+      "title": "山水相逢·古今徐州",
+      "shortTitle": "古今三角主线",
+      "zones": ["museum", "yunlongshan", "huaitower"],
+      "color": "#d16a50",
+      "unlockText": "徐州博物馆、云龙山和淮海纪念塔已经连成三角——特别结局“山水相逢·古今徐州”解锁！"
+    },
+    "stamps": {
+      "huilongwo": {"symbol": "城", "name": "回龙窝·城巷印"},
+      "hubushan": {"symbol": "户", "name": "户部山·老城印"},
+      "museum": {"symbol": "博", "name": "徐州博物馆·文脉印"},
+      "hanculture": {"symbol": "汉", "name": "汉文化景区·汉风印"},
+      "yunlonglake": {"symbol": "湖", "name": "云龙湖·湖光印"},
+      "yunlongshan": {"symbol": "山", "name": "云龙山·山色印"},
+      "huaitower": {"symbol": "念", "name": "淮海纪念塔·记忆印"}
+    },
+    "npc": {
+      "routeChosen": "{route}选好了，先去{first}。当然，路上临时绕去别处也完全可以！",
+      "freeRoute": "那就自由走走吧。看到感兴趣的地标就点进去，我一直在地图上陪你。",
+      "firstStamp": "第一枚印章到手！{zone}已经写进你的徐州手账，还有{remaining}枚等你发现。",
+      "stampProgress": "{zone}打卡成功，现在已经收集{count}枚印章，还差{remaining}枚。",
+      "routeComplete": "{route}完成！你可以结束旅程生成主题明信片，也可以继续收集。",
+      "triangleComplete": "三个顶点全部点亮！“山水相逢·古今徐州”特别明信片已经解锁。",
+      "allStamps": "七枚彭城印章全部集齐！这是今天最完整的一份徐州旅行记忆。",
+      "revisit": "又回到{zone}啦。好地方值得再看一眼，印章已经替你保存在手账里。"
+    },
+    "endings": {
+      "default": {
+        "title": "彭城初见",
+        "desc": "你的第一段徐州足迹已经留在票根上。继续漫游，可以解锁主题路线和特别结局。",
+        "color": "#476f5e"
+      },
+      "routeComplete": {
+        "title": "{route}·完成",
+        "desc": "你完成了{route}，这张明信片会保留路线名称、印章和真实相对方位。"
+      },
+      "triangle": {
+        "title": "山水相逢·古今徐州",
+        "desc": "博物馆位于上顶点，云龙山在左下，淮海纪念塔在右下。三处印章已经在明信片上连成特别三角。",
+        "color": "#a84b3f"
+      },
+      "allStamps": {
+        "title": "七印彭城·圆满珍藏",
+        "desc": "七处地标印章全部收集完成。你的徐州明信片保留了完整路线和每一枚旅行印记。",
+        "color": "#a84b3f"
+      }
+    },
+    "postcardMap": {"x": 58, "y": 48, "w": 980, "h": 690}
   },
   "postcard": {
     "loadingText": "徐州旅行明信片正在加载…",
@@ -153,7 +244,7 @@
           "letterSpacing": "7px"
         },
         {
-          "text": "山水相逢 · 古今徐州",
+          "text": "{ending}",
           "x": 1302,
           "y": 540,
           "font": "700 25px 'Microsoft YaHei','PingFang SC',sans-serif",
@@ -171,7 +262,7 @@
           "maxWidth": 520
         },
         {
-          "text": "{route}",
+          "text": "{routeName} · {route}",
           "x": 102,
           "y": 756,
           "font": "700 23px 'Microsoft YaHei','PingFang SC',sans-serif",
@@ -179,7 +270,7 @@
           "maxWidth": 520
         },
         {
-          "text": "{date} · 走过 {zones} 个区域 · 收录 {finds} 处风景",
+          "text": "{date} · {zones} 个区域 · {finds} 处风景 · {stamps} 枚印章",
           "x": 102,
           "y": 794,
           "font": "700 23px 'Microsoft YaHei','PingFang SC',sans-serif",
@@ -188,7 +279,7 @@
         }
       ],
       "footer": {
-        "text": "github.com/lzsrain/pixel-city-walk",
+        "text": "cleanwjw.github.io/city-walk",
         "x": 800,
         "y": 878,
         "font": "700 22px 'Courier New',monospace",
